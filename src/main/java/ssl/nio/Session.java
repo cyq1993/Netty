@@ -9,6 +9,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
+import static javax.net.ssl.SSLEngineResult.HandshakeStatus.NEED_TASK;
+
 /**
  *@description:
  *@author: cyq
@@ -61,30 +63,45 @@ public class Session implements Handle {
 		private ByteBuffer netInData;
 
 		private void createInData(SSLEngine engine) {
-			this.appInData = ByteBuffer.allocate(engine.getSession().getApplicationBufferSize());
-			this.netInData = ByteBuffer.allocate(engine.getSession().getPacketBufferSize());
+			this.appInData = ByteBuffer.allocate(819200);
+			this.netInData = ByteBuffer.allocate(819200);
 		}
 
 		private synchronized int doRead(Session s) throws IOException {
 				if (appInData == null || netInData == null) {
 					createInData(s.sslEngine);
 				}
-
-				netInData.clear();
-				appInData.clear();
-				int rc = s.getChannel().read(netInData);
-				System.out.println("channel="+s.getChannel());
-				if (rc > 0) {
+				
+				int rc ;//
+				int len = 0;
+			while ((rc = s.getChannel().read(netInData)) > 0 || netInData.position() != 0) {
+					System.out.println("从channel中读入数据量："+rc);
 					netInData.flip();
+					System.out.println("netData"+netInData.position() + " "+netInData.limit());
 					SSLEngineResult engineResult = s.sslEngine.unwrap(netInData, appInData);
+					System.out.println("netData"+netInData.position() + " "+netInData.limit());
 					doTask(s.sslEngine);
+					netInData.compact();
+
 					if (engineResult.getStatus() == SSLEngineResult.Status.OK){
 						appInData.flip();
-						System.out.println("收到客户端数据:"+new String(appInData.array()));
+						byte[] bytes = new byte[appInData.limit()];
+						appInData.get(bytes);
+						System.out.println(engineResult.getHandshakeStatus()+"收到客户端数据:"+bytes.length);
+						len+=bytes.length;
+						/*for (byte b : bytes) {
+							System.out.println(b);
+						}*/
+						appInData.compact();
+					}else if(engineResult.getStatus() == SSLEngineResult.Status.BUFFER_UNDERFLOW) {
+						//报错无法从channel中读入数据
+						System.out.println("Status"+engineResult.getStatus());
+						break;
 					}
-				s.getChannel().register(s.key.selector(),SelectionKey.OP_WRITE,s);
+					interestOps(s.key,0,SelectionKey.OP_WRITE);
+					System.out.println("channel 注册读事件");
 				}
-
+			System.out.println("本次解析数据："+ len);
 				return rc;
 		}
 	}
@@ -115,19 +132,21 @@ public class Session implements Handle {
 			}
 			netOutData.compact();
 		//	s.getChannel().register(s.key.selector(),SelectionKey.OP_READ,s);
-		//	interestOps(s.key,SelectionKey.OP_WRITE,SelectionKey.OP_READ);
+			interestOps(s.key,SelectionKey.OP_WRITE,SelectionKey.OP_READ);
+			System.out.println("channel 取消写事件,注册读事件");
 			return 0;
 		}
 
 	}
 
 	private static  SSLEngineResult.HandshakeStatus doTask(SSLEngine sslEngine) {
-		Runnable task;
-		while ((task = sslEngine.getDelegatedTask()) != null) {
-			System.out.println("执行SSL验证任务");
-			new Thread(task).start();
+		while(true) {
+			Runnable task = sslEngine.getDelegatedTask();
+			if (task == null) {
+				return  sslEngine.getHandshakeStatus();
+			}
+			task.run();
 		}
-		return sslEngine.getHandshakeStatus();
 	}
 
 	public static final void interestOps(SelectionKey key,int remove, int add) {
@@ -137,5 +156,16 @@ public class Session implements Handle {
 			key.interestOps(ops);
 			key.selector().wakeup();
 	}
+
+	/**
+	 *    buf.clear();          // Prepare buffer for use
+	 *    while (in.read(buf) >= 0 || buf.position != 0) {
+	 *        buf.flip();
+	 *        out.write(buf);
+	 *        buf.compact();    // In case of partial write
+	 *    }
+	 *
+	 *
+	 * */
 
 }

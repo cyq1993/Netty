@@ -17,6 +17,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.security.KeyStore;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -45,12 +46,11 @@ public class NioSSLServerTemp {
 		createBuffer();
 		while (true) {
 			selector.select();
-			Iterator<SelectionKey> it = selector.selectedKeys().iterator();
-			while (it.hasNext()) {
-				SelectionKey selectionKey = it.next();
-				it.remove();
-				handleRequest(selectionKey);
+			Set<SelectionKey> it = selector.selectedKeys();
+			for (SelectionKey key : it) {
+				handleRequest(key);
 			}
+			it.clear();
 		}
 	}
 
@@ -120,7 +120,8 @@ public class NioSSLServerTemp {
 					System.out.println(new String(bytes));
 
 				}
-				sc.register(selector, SelectionKey.OP_WRITE);
+				//sc.register(selector, SelectionKey.OP_WRITE);
+				key.interestOps(SelectionKey.OP_WRITE);
 			}
 		}
 		if (key.isWritable()) {
@@ -135,7 +136,8 @@ public class NioSSLServerTemp {
 			appOutData.clear();
 			while (netOutData.hasRemaining())
 				sc.write(netOutData);
-		//	key.interestOps(SelectionKey.OP_READ);
+			//key.interestOps(SelectionKey.OP_READ);
+			//sc.register(selector,SelectionKey.OP_READ);
 		}
 	}
 
@@ -191,7 +193,7 @@ public class NioSSLServerTemp {
 		Runnable task;
 		while ((task = sslEngine.getDelegatedTask()) != null) {
 			System.out.println("执行SSL验证任务");
-			new Thread(task).start();
+		//	new task.run();
 		}
 		return sslEngine.getHandshakeStatus();
 	}
@@ -212,7 +214,15 @@ public class NioSSLServerTemp {
 	}
 
 	public static void main(String[] args) throws Exception {
-		new NioSSLServerTemp().run();
+		//new NioSSLServerTemp().run();
+		int a = 1;
+		while (true){
+			switch (a){
+				case 1:
+					System.out.println(a);
+					break;
+			}
+		}
 	}
 }
 

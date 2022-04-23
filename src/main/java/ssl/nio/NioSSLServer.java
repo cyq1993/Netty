@@ -42,12 +42,12 @@ public class NioSSLServer {
 					System.out.println("handle="+selectionKey);
 				}
 				it.remove();
-				System.out.println("selector 获取的事件:"+selectionKey.toString()+" "+
+				/*System.out.println("selector 获取的事件:"+selectionKey.toString()+" "+
 						selectionKey.isValid()+" "+
 						selectionKey.isReadable()+" "+
 						selectionKey.isWritable()+" "+
 						selectionKey.isConnectable()+" "+
-						selectionKey.isAcceptable());
+						selectionKey.isAcceptable());*/
 				handle.doHandle();
 			}
 		}

@@ -69,7 +69,7 @@ public class Acceptor implements Handle {
 					break;
 				case NEED_TASK:
 					System.out.println("开始握手：NEED_TASK");
-					hsStatus = doTask();
+					doTask();
 					break;
 				case NEED_UNWRAP:
 					//System.out.println("开始握手：NEED_UNWRAP");
@@ -80,8 +80,8 @@ public class Acceptor implements Handle {
 					netInData.flip();
 					do {
 						SSLEngineResult engineResult = sslEngine.unwrap(netInData, appInData);
-						System.out.println("解包之后的握手状态"+engineResult.getHandshakeStatus());
-						hsStatus = doTask();
+						//System.out.println("解包之后的握手状态"+engineResult.getHandshakeStatus());
+						hsStatus =doTask();
 					} while (hsStatus == SSLEngineResult.HandshakeStatus.NEED_UNWRAP && netInData.remaining() > 0);
 					netInData.clear();
 					break;
@@ -89,7 +89,7 @@ public class Acceptor implements Handle {
 					//System.out.println("开始握手：NEED_WRAP");
 					SSLEngineResult engineResult = sslEngine.wrap(appOutData, netOutData);
 					System.out.println("打包结果"+engineResult);
-					hsStatus = doTask();
+					hsStatus =doTask();
 					netOutData.flip();
 					sc.write(netOutData);
 					netOutData.clear();
@@ -104,12 +104,31 @@ public class Acceptor implements Handle {
 	}
 
 	private SSLEngineResult.HandshakeStatus doTask() {
-		Runnable task;
+/*		Runnable task;
 		while ((task = sslEngine.getDelegatedTask()) != null) {
 			System.out.println("执行SSL验证任务");
 			new Thread(task).start();
 		}
-		return sslEngine.getHandshakeStatus();
+
+		sslEngine.getHandshakeStatus();*/
+
+		while(true) {
+			Runnable task = sslEngine.getDelegatedTask();
+			if (task == null) {
+				return  sslEngine.getHandshakeStatus();
+			}
+			task.run();
+		}
+	}
+
+	private void runDelegatedTasks() {
+		while(true) {
+			Runnable task = sslEngine.getDelegatedTask();
+			if (task == null) {
+				return;
+			}
+			task.run();
+		}
 	}
 
 }

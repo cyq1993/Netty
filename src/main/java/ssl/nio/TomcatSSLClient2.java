@@ -9,6 +9,8 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.security.KeyStore;
 
@@ -28,6 +30,7 @@ public class TomcatSSLClient2 {
 		SSLSocketFactory sslcntFactory =  sslContext.getSocketFactory();
 		sslSocket = (SSLSocket) sslcntFactory.createSocket(targetHost, port);
 		String[] supported = sslSocket.getSupportedCipherSuites();
+		sslSocket.setTcpNoDelay(false);
 		sslSocket.setEnabledCipherSuites(supported);
 	}
 
@@ -54,13 +57,31 @@ public class TomcatSSLClient2 {
 	public String sayToSvr(String sayMsg) throws IOException {
 		BufferedReader ioReader = new BufferedReader(new InputStreamReader(sslSocket.getInputStream()));
 		PrintWriter ioWriter = new PrintWriter(sslSocket.getOutputStream());
+		System.out.println(sayMsg.length());;
 		ioWriter.println(sayMsg);
 		ioWriter.flush();
 		return ioReader.readLine();
 	}
 
+	public String sayBytesToSvr(int num) throws IOException {
+		BufferedReader ioReader = new BufferedReader(new InputStreamReader(sslSocket.getInputStream()));
+		//PrintWriter ioWriter = new PrintWriter(sslSocket.getOutputStream());
+		OutputStream writer = sslSocket.getOutputStream();
+		writer.write(createBytes(num));
+		writer.flush();
+		return ioReader.readLine();
+	}
+
 	public void close() throws IOException {
 		sslSocket.close();
+	}
+
+	private byte[] createBytes(int num){
+		byte[] bytes = new byte[num];
+		for (int i = 0; i < num; i++) {
+			bytes[i] = 1;
+		}
+		return bytes;
 	}
 
 	public static void main(String[] args) throws Exception {
@@ -70,7 +91,7 @@ public class TomcatSSLClient2 {
 		String svrRespMsg = "";
 		int i = 0;
 		while ((sayMsg = ioReader.readLine()) != null) {
-			svrRespMsg = sslSocket.sayToSvr(sayMsg);
+			svrRespMsg = sslSocket.sayBytesToSvr(333050);
 			if (svrRespMsg != null && !svrRespMsg.trim().equals("")) {
 				System.out.println("服务器通过SSL协议响应:" + svrRespMsg);
 			}
